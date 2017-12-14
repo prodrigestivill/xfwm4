@@ -308,7 +308,7 @@ clientUpdateAllFrames (ScreenInfo *screen_info, int mask)
                 mask &= ~UPDATE_FRAME;
             }
             /* Recompute size and position of tiled windows */
-            else if (c->tile_position != TILE_NONE)
+            else if (c->tile_position)
             {
                 clientTile (c, frameX (c) + frameWidth (c) / 2,
                                frameY (c) + frameHeight (c) / 2,
@@ -921,7 +921,7 @@ clientMoveResizeWindow (Client *c, XWindowChanges * wc, unsigned long mask)
             clientRemoveMaximizeFlag (c);
             flags |= CFG_FORCE_REDRAW;
         }
-        if (c->tile_position != TILE_NONE)
+        if (c->tile_position)
         {
             c->tile_position = TILE_NONE;
             flags |= CFG_FORCE_REDRAW;
@@ -1091,7 +1091,7 @@ clientApplyMWMHints (Client *c, gboolean update)
             clientNewMaxSize (c, &wc, &rect);
         }
         /* If client is tiled, we need to update its coordonates and size as well */
-        else if (c->tile_position != TILE_NONE)
+        else if (c->tile_position)
         {
             clientUpdateTileSize (c);
         }
@@ -1263,7 +1263,7 @@ clientGetWMNormalHints (Client *c, gboolean update)
             {
                 clientRemoveMaximizeFlag (c);
             }
-            if (c->tile_position != TILE_NONE)
+            if (c->tile_position)
             {
                 c->tile_position = TILE_NONE;
             }
@@ -3181,7 +3181,7 @@ clientUpdateTileSize (Client *c)
     TRACE ("Update tiled size for client \"%s\" (0x%lx)", c->name, c->window);
 
     /* Recompute size and position of tiled windows */
-    if (c->tile_position != TILE_NONE)
+    if (c->tile_position)
     {
         clientTile (c, frameX (c) + frameWidth (c) / 2,
                        frameY (c) + frameHeight (c) / 2,
@@ -3752,7 +3752,7 @@ clientScreenResize(ScreenInfo *screen_info, gboolean fully_visible)
         {
             clientUpdateMaximizeSize (c);
         }
-        else if (c->tile_position != TILE_NONE)
+        else if (c->tile_position)
         {
             clientUpdateTileSize (c);
         }
