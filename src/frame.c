@@ -87,14 +87,14 @@ frameLeft (Client * c)
     TRACE ("entering frameLeft");
 
     g_return_val_if_fail (c != NULL, 0);
-    if (FLAG_TEST (c->xfwm_flags, XFWM_FLAG_HAS_BORDER)
-        && !FLAG_TEST (c->flags, CLIENT_FLAG_FULLSCREEN)
-        && (!FLAG_TEST_ALL (c->flags, CLIENT_FLAG_MAXIMIZED)
-            || !(c->screen_info->params->borderless_maximize)))
+    if (!FLAG_TEST (c->xfwm_flags, XFWM_FLAG_HAS_BORDER)
+        || FLAG_TEST (c->flags, CLIENT_FLAG_FULLSCREEN)
+        || (FLAG_TEST_ALL (c->flags, CLIENT_FLAG_MAXIMIZED)
+            && c->screen_info->params->borderless_maximize))
     {
-        return c->screen_info->sides[SIDE_LEFT][ACTIVE].width;
+        return 0;
     }
-    return 0;
+    return c->screen_info->sides[SIDE_LEFT][ACTIVE].width;
 }
 
 int
@@ -103,14 +103,14 @@ frameRight (Client * c)
     TRACE ("entering frameRight");
 
     g_return_val_if_fail (c != NULL, 0);
-    if (FLAG_TEST (c->xfwm_flags, XFWM_FLAG_HAS_BORDER)
-        && !FLAG_TEST (c->flags, CLIENT_FLAG_FULLSCREEN)
-        && (!FLAG_TEST_ALL (c->flags, CLIENT_FLAG_MAXIMIZED)
-            || !(c->screen_info->params->borderless_maximize)))
+    if (!FLAG_TEST (c->xfwm_flags, XFWM_FLAG_HAS_BORDER)
+        || FLAG_TEST (c->flags, CLIENT_FLAG_FULLSCREEN)
+        || (FLAG_TEST_ALL (c->flags, CLIENT_FLAG_MAXIMIZED)
+            && c->screen_info->params->borderless_maximize))
     {
-        return c->screen_info->sides[SIDE_RIGHT][ACTIVE].width;
+        return 0;
     }
-    return 0;
+    return c->screen_info->sides[SIDE_RIGHT][ACTIVE].width;
 }
 
 int
@@ -132,14 +132,14 @@ frameBottom (Client * c)
     TRACE ("entering frameBottom");
 
     g_return_val_if_fail (c != NULL, 0);
-    if (FLAG_TEST (c->xfwm_flags, XFWM_FLAG_HAS_BORDER)
-        && !FLAG_TEST (c->flags, CLIENT_FLAG_FULLSCREEN)
-        && (!FLAG_TEST_ALL (c->flags, CLIENT_FLAG_MAXIMIZED)
-            || !(c->screen_info->params->borderless_maximize)))
+    if (!FLAG_TEST (c->xfwm_flags, XFWM_FLAG_HAS_BORDER)
+        || FLAG_TEST (c->flags, CLIENT_FLAG_FULLSCREEN)
+        || (FLAG_TEST_ALL (c->flags, CLIENT_FLAG_MAXIMIZED)
+            && c->screen_info->params->borderless_maximize))
     {
-        return c->screen_info->sides[SIDE_BOTTOM][ACTIVE].height;
+        return 0;
     }
-    return 0;
+    return c->screen_info->sides[SIDE_BOTTOM][ACTIVE].height;
 }
 
 int
@@ -148,14 +148,14 @@ frameX (Client * c)
     TRACE ("entering frameX");
 
     g_return_val_if_fail (c != NULL, 0);
-    if (FLAG_TEST (c->xfwm_flags, XFWM_FLAG_HAS_BORDER)
-        && !FLAG_TEST (c->flags, CLIENT_FLAG_FULLSCREEN)
-        && (!FLAG_TEST_ALL (c->flags, CLIENT_FLAG_MAXIMIZED)
-            || !(c->screen_info->params->borderless_maximize)))
+    if (!FLAG_TEST (c->xfwm_flags, XFWM_FLAG_HAS_BORDER)
+        || FLAG_TEST (c->flags, CLIENT_FLAG_FULLSCREEN)
+        || (FLAG_TEST_ALL (c->flags, CLIENT_FLAG_MAXIMIZED)
+            && c->screen_info->params->borderless_maximize))
     {
-        return c->x - frameLeft (c);
+        return c->x;
     }
-    return c->x;
+    return c->x - frameLeft (c);
 }
 
 int
@@ -164,12 +164,12 @@ frameY (Client * c)
     TRACE ("entering frameY");
 
     g_return_val_if_fail (c != NULL, 0);
-    if (FLAG_TEST (c->xfwm_flags, XFWM_FLAG_HAS_BORDER)
-         && !FLAG_TEST (c->flags, CLIENT_FLAG_FULLSCREEN))
+    if (!FLAG_TEST (c->xfwm_flags, XFWM_FLAG_HAS_BORDER)
+        || FLAG_TEST (c->flags, CLIENT_FLAG_FULLSCREEN))
     {
-        return c->y - frameTop (c);
+        return c->y;
     }
-    return c->y;
+    return c->y - frameTop (c);
 }
 
 int
@@ -178,14 +178,14 @@ frameWidth (Client * c)
     TRACE ("entering frameWidth");
 
     g_return_val_if_fail (c != NULL, 0);
-    if (FLAG_TEST (c->xfwm_flags, XFWM_FLAG_HAS_BORDER)
-        && !FLAG_TEST (c->flags, CLIENT_FLAG_FULLSCREEN)
-        && (!FLAG_TEST_ALL (c->flags, CLIENT_FLAG_MAXIMIZED)
-            || !(c->screen_info->params->borderless_maximize)))
+    if (!FLAG_TEST (c->xfwm_flags, XFWM_FLAG_HAS_BORDER)
+        || FLAG_TEST (c->flags, CLIENT_FLAG_FULLSCREEN)
+        || (FLAG_TEST_ALL (c->flags, CLIENT_FLAG_MAXIMIZED)
+            && c->screen_info->params->borderless_maximize))
     {
-        return c->width + frameLeft (c) + frameRight (c);
+        return c->width;
     }
-    return c->width;
+    return c->width + frameLeft (c) + frameRight (c);
 }
 
 int
@@ -1387,4 +1387,3 @@ frameQueueDraw (Client * c, gboolean clear_all)
                                               update_frame_idle_cb, c, NULL);
     }
 }
-
