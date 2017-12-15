@@ -549,6 +549,9 @@ frameCreateTitlePixmap (Client * c, int state, int left, int right, xfwmPixmap *
     xfwmPixmapCreate (screen_info, top_pm, width, top_height);
     xfwmPixmapCreate (screen_info, title_pm, width, frameTop (c));
 
+    surface = xfwmPixmapCreateSurface (title_pm, FALSE);
+    cr = cairo_create (surface);
+
     if (w1 > 0)
     {
         frameFillTitlePixmap (c, state, TITLE_1, x, w1, top_height, title_pm, top_pm);
@@ -564,8 +567,6 @@ frameCreateTitlePixmap (Client * c, int state, int left, int right, xfwmPixmap *
         if (CLIENT_HAS_TITLE (c))
         {
             title_x = hoffset + x;
-            surface = xfwmPixmapCreateSurface (title_pm, FALSE);
-            cr = cairo_create (surface);
             cairo_translate (cr, title_x, title_y);
             if (screen_info->params->title_shadow[state])
             {
@@ -591,8 +592,6 @@ frameCreateTitlePixmap (Client * c, int state, int left, int right, xfwmPixmap *
             }
             gdk_cairo_set_source_rgba (cr, &screen_info->title_colors[state]);
             pango_cairo_show_layout (cr, layout);
-            cairo_destroy (cr);
-            cairo_surface_destroy (surface);
         }
         x = x + w3;
     }
@@ -608,6 +607,8 @@ frameCreateTitlePixmap (Client * c, int state, int left, int right, xfwmPixmap *
     {
         frameFillTitlePixmap (c, state, TITLE_5, x, w5, top_height, title_pm, top_pm);
     }
+    cairo_destroy (cr);
+    cairo_surface_destroy (surface);
     g_object_unref (G_OBJECT (layout));
 }
 

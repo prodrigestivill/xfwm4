@@ -3207,22 +3207,14 @@ clientUpdateMaximizeSize (Client *c)
 void
 clientRemoveTilePosition (Client *c)
 {
-    DisplayInfo *display_info;
-
     g_return_if_fail (c != NULL);
     TRACE ("entering clientRemoveTileFlag");
     TRACE ("Removing tile position on client \"%s\" (0x%lx)", c->name,
         c->window);
 
-    display_info = c->screen_info->display_info;
     c->tile_position = TILE_NONE;
-    setNetFrameExtents (display_info,
-                    c->window,
-                    frameTop (c),
-                    frameLeft (c),
-                    frameRight (c),
-                    frameBottom (c));
-    frameQueueDraw (c, TRUE);
+    FLAG_UNSET (c->flags, CLIENT_FLAG_RESTORE_SIZE_POS);
+    frameQueueDraw (c, FALSE);
     clientSetNetActions (c);
     clientSetNetState (c);
 }
@@ -3529,6 +3521,7 @@ clientTile (Client *c, gint cx, gint cy, tilePositionType tile, gboolean send_co
     XWindowChanges wc;
     GdkRectangle rect;
     unsigned long old_flags;
+    tilePositionType old_tile;
 
     g_return_val_if_fail (c != NULL, FALSE);
 
@@ -3555,11 +3548,13 @@ clientTile (Client *c, gint cx, gint cy, tilePositionType tile, gboolean send_co
     }
 
     old_flags = c->flags;
+    old_tile = c->tile_position;
     FLAG_UNSET (c->flags, CLIENT_FLAG_MAXIMIZED);
     c->tile_position = tile;
     if (!clientNewTileSize (c, &wc, &rect, tile))
     {
         c->flags = old_flags;
+        c->tile_position = old_tile;
         return FALSE;
     }
     FLAG_SET (c->flags, CLIENT_FLAG_RESTORE_SIZE_POS);
