@@ -89,8 +89,9 @@ frameLeft (Client * c)
     g_return_val_if_fail (c != NULL, 0);
     if (!FLAG_TEST (c->xfwm_flags, XFWM_FLAG_HAS_BORDER)
         || FLAG_TEST (c->flags, CLIENT_FLAG_FULLSCREEN)
-        || (FLAG_TEST_ALL (c->flags, CLIENT_FLAG_MAXIMIZED)
-            && c->screen_info->params->borderless_maximize))
+        || (c->screen_info->params->borderless_maximize &&
+            (FLAG_TEST_ALL (c->flags, CLIENT_FLAG_MAXIMIZED)
+             || FLAG_TEST (c->tile_position, TILE_LEFT))))
     {
         return 0;
     }
@@ -105,8 +106,9 @@ frameRight (Client * c)
     g_return_val_if_fail (c != NULL, 0);
     if (!FLAG_TEST (c->xfwm_flags, XFWM_FLAG_HAS_BORDER)
         || FLAG_TEST (c->flags, CLIENT_FLAG_FULLSCREEN)
-        || (FLAG_TEST_ALL (c->flags, CLIENT_FLAG_MAXIMIZED)
-            && c->screen_info->params->borderless_maximize))
+        || (c->screen_info->params->borderless_maximize &&
+            (FLAG_TEST_ALL (c->flags, CLIENT_FLAG_MAXIMIZED)
+             || FLAG_TEST (c->tile_position, TILE_RIGHT))))
     {
         return 0;
     }
@@ -119,9 +121,17 @@ frameTop (Client * c)
     TRACE ("entering frameTop");
 
     g_return_val_if_fail (c != NULL, 0);
-    if (CLIENT_HAS_FRAME (c))
+    if (CLIENT_HAS_TITLE (c))
     {
         return c->screen_info->title[TITLE_3][ACTIVE].height;
+    }
+    else if (c->screen_info->params->borderless_maximize
+             && c->screen_info->params->titleless_tile
+             && FLAG_TEST (c->tile_position, TILE_DOWN))
+    {
+        /* We display top border with BOTTOM height
+            because there is no small TOP height border */
+        return c->screen_info->sides[SIDE_BOTTOM][ACTIVE].height;
     }
     return 0;
 }
@@ -134,8 +144,10 @@ frameBottom (Client * c)
     g_return_val_if_fail (c != NULL, 0);
     if (!FLAG_TEST (c->xfwm_flags, XFWM_FLAG_HAS_BORDER)
         || FLAG_TEST (c->flags, CLIENT_FLAG_FULLSCREEN)
-        || (FLAG_TEST_ALL (c->flags, CLIENT_FLAG_MAXIMIZED)
-            && c->screen_info->params->borderless_maximize))
+        || (c->screen_info->params->borderless_maximize &&
+            (FLAG_TEST_ALL (c->flags, CLIENT_FLAG_MAXIMIZED)
+             || (c->tile_position
+                 && !FLAG_TEST (c->tile_position, TILE_UP)))))
     {
         return 0;
     }
@@ -150,8 +162,9 @@ frameX (Client * c)
     g_return_val_if_fail (c != NULL, 0);
     if (!FLAG_TEST (c->xfwm_flags, XFWM_FLAG_HAS_BORDER)
         || FLAG_TEST (c->flags, CLIENT_FLAG_FULLSCREEN)
-        || (FLAG_TEST_ALL (c->flags, CLIENT_FLAG_MAXIMIZED)
-            && c->screen_info->params->borderless_maximize))
+        || (c->screen_info->params->borderless_maximize &&
+            (FLAG_TEST_ALL (c->flags, CLIENT_FLAG_MAXIMIZED)
+             || FLAG_TEST (c->tile_position, TILE_LEFT))))
     {
         return c->x;
     }
@@ -179,9 +192,7 @@ frameWidth (Client * c)
 
     g_return_val_if_fail (c != NULL, 0);
     if (!FLAG_TEST (c->xfwm_flags, XFWM_FLAG_HAS_BORDER)
-        || FLAG_TEST (c->flags, CLIENT_FLAG_FULLSCREEN)
-        || (FLAG_TEST_ALL (c->flags, CLIENT_FLAG_MAXIMIZED)
-            && c->screen_info->params->borderless_maximize))
+        || FLAG_TEST (c->flags, CLIENT_FLAG_FULLSCREEN))
     {
         return c->width;
     }
@@ -349,8 +360,9 @@ frameButtonOffset (Client *c)
     TRACE ("entering frameButtonOffset");
 
     g_return_val_if_fail (c != NULL, 0);
-    if (FLAG_TEST_ALL (c->flags, CLIENT_FLAG_MAXIMIZED)
-        && c->screen_info->params->borderless_maximize)
+    if (c->screen_info->params->borderless_maximize
+        && (FLAG_TEST_ALL (c->flags, CLIENT_FLAG_MAXIMIZED)
+            || c->tile_position))
     {
         return MAX (0, c->screen_info->params->maximized_offset);
     }
@@ -537,9 +549,6 @@ frameCreateTitlePixmap (Client * c, int state, int left, int right, xfwmPixmap *
     xfwmPixmapCreate (screen_info, top_pm, width, top_height);
     xfwmPixmapCreate (screen_info, title_pm, width, frameTop (c));
 
-    surface = xfwmPixmapCreateSurface (title_pm, FALSE);
-    cr = cairo_create (surface);
-
     if (w1 > 0)
     {
         frameFillTitlePixmap (c, state, TITLE_1, x, w1, top_height, title_pm, top_pm);
@@ -552,32 +561,39 @@ frameCreateTitlePixmap (Client * c, int state, int left, int right, xfwmPixmap *
     if (w3 > 0)
     {
         frameFillTitlePixmap (c, state, TITLE_3, x, w3, top_height, title_pm, top_pm);
-        title_x = hoffset + x;
-        cairo_translate (cr, title_x, title_y);
-        if (screen_info->params->title_shadow[state])
+        if (CLIENT_HAS_TITLE (c))
         {
-            gdk_cairo_set_source_rgba (cr, &screen_info->title_shadow_colors[state]);
-            if (screen_info->params->title_shadow[state] == TITLE_SHADOW_UNDER)
+            title_x = hoffset + x;
+            surface = xfwmPixmapCreateSurface (title_pm, FALSE);
+            cr = cairo_create (surface);
+            cairo_translate (cr, title_x, title_y);
+            if (screen_info->params->title_shadow[state])
             {
-                cairo_translate (cr, 1, 1);
-                pango_cairo_show_layout (cr, layout);
-                cairo_translate (cr, -1, -1);
+                gdk_cairo_set_source_rgba (cr, &screen_info->title_shadow_colors[state]);
+                if (screen_info->params->title_shadow[state] == TITLE_SHADOW_UNDER)
+                {
+                    cairo_translate (cr, 1, 1);
+                    pango_cairo_show_layout (cr, layout);
+                    cairo_translate (cr, -1, -1);
+                }
+                else
+                {
+                    cairo_translate (cr, -1, 0);
+                    pango_cairo_show_layout (cr, layout);
+                    cairo_translate (cr, 1, -1);
+                    pango_cairo_show_layout (cr, layout);
+                    cairo_translate (cr, 1, 1);
+                    pango_cairo_show_layout (cr, layout);
+                    cairo_translate (cr, -1, 1);
+                    pango_cairo_show_layout (cr, layout);
+                    cairo_translate (cr, 0, -1);
+                }
             }
-            else
-            {
-                cairo_translate (cr, -1, 0);
-                pango_cairo_show_layout (cr, layout);
-                cairo_translate (cr, 1, -1);
-                pango_cairo_show_layout (cr, layout);
-                cairo_translate (cr, 1, 1);
-                pango_cairo_show_layout (cr, layout);
-                cairo_translate (cr, -1, 1);
-                pango_cairo_show_layout (cr, layout);
-                cairo_translate (cr, 0, -1);
-            }
+            gdk_cairo_set_source_rgba (cr, &screen_info->title_colors[state]);
+            pango_cairo_show_layout (cr, layout);
+            cairo_destroy (cr);
+            cairo_surface_destroy (surface);
         }
-        gdk_cairo_set_source_rgba (cr, &screen_info->title_colors[state]);
-        pango_cairo_show_layout (cr, layout);
         x = x + w3;
     }
 
@@ -592,8 +608,6 @@ frameCreateTitlePixmap (Client * c, int state, int left, int right, xfwmPixmap *
     {
         frameFillTitlePixmap (c, state, TITLE_5, x, w5, top_height, title_pm, top_pm);
     }
-    cairo_destroy (cr);
-    cairo_surface_destroy (surface);
     g_object_unref (G_OBJECT (layout));
 }
 
@@ -1066,91 +1080,7 @@ frameDrawWin (Client * c)
 
     if (CLIENT_HAS_FRAME (c))
     {
-        /* First, hide the buttons that we don't have... */
-        for (i = 0; i < BUTTON_COUNT; i++)
-        {
-            char b = getLetterFromButton (i, c);
-            if ((!b) || !strchr (screen_info->params->button_layout, b))
-            {
-                xfwmWindowHide (&c->buttons[i]);
-            }
-        }
-
-        /* Then, show the ones that we do have on left... */
-        x = frameLeft (c) + frameButtonOffset (c);
-        if (x < 0)
-        {
-            x = 0;
-        }
-        right = frameWidth (c) - frameRight (c) - frameButtonOffset (c);
-        for (i = 0; i < strlen (screen_info->params->button_layout); i++)
-        {
-            button = getButtonFromLetter (screen_info->params->button_layout[i], c);
-            if (button == TITLE_SEPARATOR)
-            {
-                break;
-            }
-            else if (button >= 0)
-            {
-                if (x + screen_info->buttons[button][state].width + screen_info->params->button_spacing < right)
-                {
-                    my_pixmap = clientGetButtonPixmap (c, button, clientGetButtonState (c, button, state));
-                    if (!xfwmPixmapNone(my_pixmap))
-                    {
-                        xfwmWindowSetBG (&c->buttons[button], my_pixmap);
-                    }
-                    xfwmWindowShow (&c->buttons[button], x,
-                        (frameTop (c) - screen_info->buttons[button][state].height + 1) / 2,
-                        screen_info->buttons[button][state].width,
-                        screen_info->buttons[button][state].height, TRUE);
-                    button_x[button] = x;
-                    x = x + screen_info->buttons[button][state].width +
-                        screen_info->params->button_spacing;
-                }
-                else
-                {
-                    xfwmWindowHide (&c->buttons[button]);
-                }
-            }
-        }
-        left = x + screen_info->params->button_spacing;
-
-        /* and those that we do have on right... */
-        x = frameWidth (c) - frameRight (c) + screen_info->params->button_spacing -
-            frameButtonOffset (c);
-        for (j = strlen (screen_info->params->button_layout) - 1; j >= i; j--)
-        {
-            button = getButtonFromLetter (screen_info->params->button_layout[j], c);
-            if (button == TITLE_SEPARATOR)
-            {
-                break;
-            }
-            else if (button >= 0)
-            {
-                if (x - screen_info->buttons[button][state].width - screen_info->params->button_spacing > left)
-                {
-                    my_pixmap = clientGetButtonPixmap (c, button, clientGetButtonState (c, button, state));
-                    if (!xfwmPixmapNone(my_pixmap))
-                    {
-                        xfwmWindowSetBG (&c->buttons[button], my_pixmap);
-                    }
-                    x = x - screen_info->buttons[button][state].width -
-                        screen_info->params->button_spacing;
-                    xfwmWindowShow (&c->buttons[button], x,
-                        (frameTop (c) - screen_info->buttons[button][state].height + 1) / 2,
-                        screen_info->buttons[button][state].width,
-                        screen_info->buttons[button][state].height, TRUE);
-                    button_x[button] = x;
-                }
-                else
-                {
-                    xfwmWindowHide (&c->buttons[button]);
-                }
-            }
-        }
-        left = left - 2 * screen_info->params->button_spacing;
-        right = x;
-
+        /* Initialize variables and pixmaps */
         top_width = frameWidth (c) - frameTopLeftWidth (c, state) - frameTopRightWidth (c, state);
         bottom_width = frameWidth (c) -
             screen_info->corners[CORNER_BOTTOM_LEFT][state].width -
@@ -1165,6 +1095,104 @@ frameDrawWin (Client * c)
         xfwmPixmapInit (screen_info, &frame_pix.pm_sides[SIDE_BOTTOM]);
         xfwmPixmapInit (screen_info, &frame_pix.pm_sides[SIDE_LEFT]);
         xfwmPixmapInit (screen_info, &frame_pix.pm_sides[SIDE_RIGHT]);
+
+        /* Configure top buttons */
+        if (CLIENT_HAS_TITLE (c))
+        {
+            /* First, hide the buttons that we don't have... */
+            for (i = 0; i < BUTTON_COUNT; i++)
+            {
+                char b = getLetterFromButton (i, c);
+                if ((!b) || !strchr (screen_info->params->button_layout, b))
+                {
+                    xfwmWindowHide (&c->buttons[i]);
+                }
+            }
+
+            /* Then, show the ones that we do have on left... */
+            x = frameLeft (c) + frameButtonOffset (c);
+            if (x < 0)
+            {
+                x = 0;
+            }
+            right = frameWidth (c) - frameRight (c) - frameButtonOffset (c);
+            for (i = 0; i < strlen (screen_info->params->button_layout); i++)
+            {
+                button = getButtonFromLetter (screen_info->params->button_layout[i], c);
+                if (button == TITLE_SEPARATOR)
+                {
+                    break;
+                }
+                else if (button >= 0)
+                {
+                    if (x + screen_info->buttons[button][state].width + screen_info->params->button_spacing < right)
+                    {
+                        my_pixmap = clientGetButtonPixmap (c, button, clientGetButtonState (c, button, state));
+                        if (!xfwmPixmapNone(my_pixmap))
+                        {
+                            xfwmWindowSetBG (&c->buttons[button], my_pixmap);
+                        }
+                        xfwmWindowShow (&c->buttons[button], x,
+                            (frameTop (c) - screen_info->buttons[button][state].height + 1) / 2,
+                            screen_info->buttons[button][state].width,
+                            screen_info->buttons[button][state].height, TRUE);
+                        button_x[button] = x;
+                        x = x + screen_info->buttons[button][state].width +
+                            screen_info->params->button_spacing;
+                    }
+                    else
+                    {
+                        xfwmWindowHide (&c->buttons[button]);
+                    }
+                }
+            }
+            left = x + screen_info->params->button_spacing;
+
+            /* and those that we do have on right... */
+            x = frameWidth (c) - frameRight (c) + screen_info->params->button_spacing -
+                frameButtonOffset (c);
+            for (j = strlen (screen_info->params->button_layout) - 1; j >= i; j--)
+            {
+                button = getButtonFromLetter (screen_info->params->button_layout[j], c);
+                if (button == TITLE_SEPARATOR)
+                {
+                    break;
+                }
+                else if (button >= 0)
+                {
+                    if (x - screen_info->buttons[button][state].width - screen_info->params->button_spacing > left)
+                    {
+                        my_pixmap = clientGetButtonPixmap (c, button, clientGetButtonState (c, button, state));
+                        if (!xfwmPixmapNone(my_pixmap))
+                        {
+                            xfwmWindowSetBG (&c->buttons[button], my_pixmap);
+                        }
+                        x = x - screen_info->buttons[button][state].width -
+                            screen_info->params->button_spacing;
+                        xfwmWindowShow (&c->buttons[button], x,
+                            (frameTop (c) - screen_info->buttons[button][state].height + 1) / 2,
+                            screen_info->buttons[button][state].width,
+                            screen_info->buttons[button][state].height, TRUE);
+                        button_x[button] = x;
+                    }
+                    else
+                    {
+                        xfwmWindowHide (&c->buttons[button]);
+                    }
+                }
+            }
+            left = left - 2 * screen_info->params->button_spacing;
+            right = x;
+        }
+        else
+        {
+            left = frameLeft (c) + frameButtonOffset (c);
+            right = frameWidth (c) - frameRight (c) - frameButtonOffset (c);
+            for (i = 0; i < BUTTON_COUNT; i++)
+            {
+                xfwmWindowHide (&c->buttons[i]);
+            }
+        }
 
         /* The title is always visible */
         frameCreateTitlePixmap (c, state, left, right, &frame_pix.pm_title, &frame_pix.pm_sides[SIDE_TOP]);
