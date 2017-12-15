@@ -203,6 +203,7 @@ struct _XfwmParams
     int wrap_resistance;
     gboolean borderless_maximize;
     gboolean titleless_maximize;
+    gboolean titleless_tile;
     gboolean box_move;
     gboolean box_resize;
     gboolean click_to_focus;

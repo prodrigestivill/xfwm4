@@ -1842,6 +1842,11 @@ clientResize (Client * c, int handle, XEvent * ev)
         {
             clientRemoveMaximizeFlag (c);
         }
+        if (c->tile_position)
+        {
+            clientRemoveTilePosition (c);
+            passdata.configure_flags = CFG_FORCE_REDRAW;
+        }
         if (FLAG_TEST (c->flags, CLIENT_FLAG_RESTORE_SIZE_POS))
         {
             FLAG_UNSET (c->flags, CLIENT_FLAG_RESTORE_SIZE_POS);

@@ -59,6 +59,7 @@ title_alignment=center
 title_font=Sans Bold 9
 title_horizontal_offset=0
 titleless_maximize=false
+titleless_tile=false
 title_shadow_active=false
 title_shadow_inactive=false
 title_vertical_offset_active=0

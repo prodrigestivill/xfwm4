@@ -921,7 +921,7 @@ clientMoveResizeWindow (Client *c, XWindowChanges * wc, unsigned long mask)
         }
         if (c->tile_position)
         {
-            c->tile_position = TILE_NONE;
+            clientRemoveTilePosition (c);
             flags |= CFG_FORCE_REDRAW;
         }
 
@@ -1250,7 +1250,7 @@ clientGetWMNormalHints (Client *c, gboolean update)
             }
             if (c->tile_position)
             {
-                c->tile_position = TILE_NONE;
+                clientRemoveTilePosition (c);
             }
             clientConfigure (c, &wc, CWX | CWY | CWWidth | CWHeight, CFG_CONSTRAINED | CFG_FORCE_REDRAW);
         }
@@ -2786,7 +2786,7 @@ clientShade (Client *c)
     TRACE ("entering clientToggleShaded");
     TRACE ("shading client \"%s\" (0x%lx)", c->name, c->window);
 
-    if (!CLIENT_HAS_FRAME(c))
+    if (!CLIENT_HAS_TITLE (c))
     {
         TRACE ("cowardly refusing to shade \"%s\" (0x%lx) because it has no title", c->name, c->window);
         return;
@@ -3189,6 +3189,29 @@ clientUpdateMaximizeSize (Client *c)
 }
 
 void
+clientRemoveTilePosition (Client *c)
+{
+    DisplayInfo *display_info;
+
+    g_return_if_fail (c != NULL);
+    TRACE ("entering clientRemoveTileFlag");
+    TRACE ("Removing tile position on client \"%s\" (0x%lx)", c->name,
+        c->window);
+
+    display_info = c->screen_info->display_info;
+    c->tile_position = TILE_NONE;
+    setNetFrameExtents (display_info,
+                    c->window,
+                    frameTop (c),
+                    frameLeft (c),
+                    frameRight (c),
+                    frameBottom (c));
+    frameQueueDraw (c, TRUE);
+    clientSetNetActions (c);
+    clientSetNetState (c);
+}
+
+void
 clientRemoveMaximizeFlag (Client *c)
 {
     g_return_if_fail (c != NULL);
@@ -3433,6 +3456,7 @@ clientToggleMaximized (Client *c, int mode, gboolean restore_position)
     c->y = wc.y;
     c->height = wc.height;
     c->width = wc.width;
+    c->tile_position = TILE_NONE;
 
     /* Maximizing may remove decoration on the side, update NET_FRAME_EXTENTS accordingly */
     setNetFrameExtents (display_info,
@@ -3528,6 +3552,11 @@ clientTile (Client *c, gint cx, gint cy, tilePositionType tile, gboolean send_co
     c->height = wc.height;
     c->width = wc.width;
 
+    /* Tiled windows w/out border cannot be resized, update allowed actions */
+    if (FLAG_TEST (c->flags, CLIENT_FLAG_SHADED))
+    {
+        clientUnshade (c);
+    }
     if (send_configure)
     {
         setNetFrameExtents (display_info,
