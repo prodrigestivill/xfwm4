@@ -337,6 +337,7 @@ struct _Client
     unsigned long xfwm_flags;
     gint fullscreen_monitors[4];
     gint frame_extents[SIDE_COUNT];
+    tilePositionType tile_position;
 
     /* Termination dialog */
     gint dialog_pid;
@@ -461,6 +462,7 @@ void                     clientToggleLayerAbove                 (Client *);
 void                     clientToggleLayerBelow                 (Client *);
 void                     clientSetLayerNormal                   (Client *);
 void                     clientRemoveMaximizeFlag               (Client *);
+void                     clientUpdateTileSize                   (Client *);
 void                     clientUpdateMaximizeSize               (Client *);
 gboolean                 clientToggleMaximized                  (Client *,
                                                                  int,
