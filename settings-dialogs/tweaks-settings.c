@@ -183,6 +183,7 @@ wm_tweaks_dialog_configure_widgets (GtkBuilder *builder)
     GtkWidget *raise_with_any_button_check = GTK_WIDGET (gtk_builder_get_object (builder, "raise_with_any_button_check"));
     GtkWidget *borderless_maximize_check = GTK_WIDGET (gtk_builder_get_object (builder, "borderless_maximize_check"));
     GtkWidget *titleless_maximize_check = GTK_WIDGET (gtk_builder_get_object (builder, "titleless_maximize_check"));
+    GtkWidget *titleless_tile_check = GTK_WIDGET (gtk_builder_get_object (builder, "titleless_tile_check"));
     GtkWidget *tile_on_move_check = GTK_WIDGET (gtk_builder_get_object (builder, "tile_on_move_check"));
     GtkWidget *snap_resist_check = GTK_WIDGET (gtk_builder_get_object (builder, "snap_resist_check"));
     GtkWidget *urgent_blink = GTK_WIDGET (gtk_builder_get_object (builder, "urgent_blink"));
@@ -274,6 +275,10 @@ wm_tweaks_dialog_configure_widgets (GtkBuilder *builder)
                       "toggled",
                       G_CALLBACK (cb_borderless_maximize_button_toggled),
                       titleless_maximize_check);
+    g_signal_connect (G_OBJECT (borderless_maximize_check),
+                      "toggled",
+                      G_CALLBACK (cb_borderless_maximize_button_toggled),
+                      titleless_tile_check);
     g_signal_connect (G_OBJECT (placement_center_option),
                       "toggled",
                       G_CALLBACK (cb_activate_placement_center_radio_toggled),
@@ -342,6 +347,10 @@ wm_tweaks_dialog_configure_widgets (GtkBuilder *builder)
                             G_TYPE_BOOLEAN,
                             (GObject *)titleless_maximize_check, "active");
     xfconf_g_property_bind (xfwm4_channel,
+                            "/general/titleless_tile",
+                            G_TYPE_BOOLEAN,
+                            (GObject *)titleless_tile_check, "active");
+    xfconf_g_property_bind (xfwm4_channel,
                             "/general/tile_on_move",
                             G_TYPE_BOOLEAN,
                             (GObject *)tile_on_move_check, "active");
@@ -365,7 +374,8 @@ wm_tweaks_dialog_configure_widgets (GtkBuilder *builder)
                               gtk_toggle_button_get_active (GTK_TOGGLE_BUTTON (urgent_blink)));
     gtk_widget_set_sensitive (titleless_maximize_check,
                               gtk_toggle_button_get_active (GTK_TOGGLE_BUTTON (borderless_maximize_check)));
-
+    gtk_widget_set_sensitive (titleless_tile_check,
+                              gtk_toggle_button_get_active (GTK_TOGGLE_BUTTON (borderless_maximize_check)));
     /* Workspaces tab */
     xfconf_g_property_bind (xfwm4_channel,
                             "/general/toggle_workspaces",

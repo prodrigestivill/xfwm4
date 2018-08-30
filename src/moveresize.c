@@ -1745,6 +1745,7 @@ clientResize (Client * c, int handle, XEvent * ev)
     passdata.cancel_y = passdata.oy = c->y;
     passdata.cancel_w = passdata.ow = c->width;
     passdata.cancel_h = passdata.oh = c->height;
+    passdata.configure_flags = NO_CFG_FLAG;
     passdata.use_keys = FALSE;
     passdata.grab = FALSE;
     passdata.released = FALSE;
@@ -1841,13 +1842,19 @@ clientResize (Client * c, int handle, XEvent * ev)
         if (FLAG_TEST (c->flags, CLIENT_FLAG_MAXIMIZED))
         {
             clientRemoveMaximizeFlag (c);
+            passdata.configure_flags = CFG_FORCE_REDRAW;
+        }
+        if (c->tile_position)
+        {
+            clientRemoveTilePosition (c);
+            passdata.configure_flags = CFG_FORCE_REDRAW;
         }
         if (FLAG_TEST (c->flags, CLIENT_FLAG_RESTORE_SIZE_POS))
         {
             FLAG_UNSET (c->flags, CLIENT_FLAG_RESTORE_SIZE_POS);
         }
     }
-    clientReconfigure (c, NO_CFG_FLAG);
+    clientReconfigure (c, passdata.configure_flags);
 
     if (passdata.button != AnyButton && !passdata.released)
     {

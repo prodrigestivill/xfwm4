@@ -297,8 +297,18 @@ clientUpdateAllFrames (ScreenInfo *screen_info, int mask)
         }
         if (mask & UPDATE_MAXIMIZE)
         {
+            /* Recompute size and position of tiled windows */
+            if (c->tile_position)
+            {
+                clientTile (c, frameX (c) + frameWidth (c) / 2,
+                               frameY (c) + frameHeight (c) / 2,
+                               c->tile_position, FALSE, FALSE);
+
+                configure_flags |= CFG_FORCE_REDRAW;
+                mask &= ~UPDATE_FRAME;
+            }
             /* Recompute size and position of maximized windows */
-            if (FLAG_TEST (c->flags, CLIENT_FLAG_MAXIMIZED))
+            else if (FLAG_TEST (c->flags, CLIENT_FLAG_MAXIMIZED))
             {
                 clientRecomputeMaximizeSize (c);
 
@@ -908,6 +918,12 @@ clientMoveResizeWindow (Client *c, XWindowChanges * wc, unsigned long mask)
         if (FLAG_TEST (c->flags, CLIENT_FLAG_MAXIMIZED))
         {
             clientRemoveMaximizeFlag (c);
+            flags |= CFG_FORCE_REDRAW;
+        }
+        if (c->tile_position)
+        {
+            clientRemoveTilePosition (c);
+            flags |= CFG_FORCE_REDRAW;
         }
 
         flags |= CFG_REQUEST | CFG_CONSTRAINED;
@@ -1046,6 +1062,11 @@ clientGetMWMHints (Client *c, gboolean update)
         if (FLAG_TEST (c->flags, CLIENT_FLAG_FULLSCREEN))
         {
             clientUpdateFullscreenSize (c);
+        }
+        /* If client is tiled, we need to update its coordonates and size as well */
+        else if (c->tile_position)
+        {
+            clientUpdateTileSize (c);
         }
         /* If client is maximized, we need to update its coordonates and size as well */
         else if (FLAG_TEST (c->flags, CLIENT_FLAG_MAXIMIZED))
@@ -1227,6 +1248,10 @@ clientGetWMNormalHints (Client *c, gboolean update)
             if (FLAG_TEST (c->flags, CLIENT_FLAG_MAXIMIZED))
             {
                 clientRemoveMaximizeFlag (c);
+            }
+            if (c->tile_position)
+            {
+                clientRemoveTilePosition (c);
             }
             clientConfigure (c, &wc, CWX | CWY | CWWidth | CWHeight, CFG_CONSTRAINED | CFG_FORCE_REDRAW);
         }
@@ -1656,6 +1681,7 @@ clientFrame (DisplayInfo *display_info, Window w, gboolean recapture)
     c->y = attr.y;
     c->width = attr.width;
     c->height = attr.height;
+    c->tile_position = TILE_NONE;
 
 #ifdef HAVE_LIBSTARTUP_NOTIFICATION
     c->startup_id = NULL;
@@ -2761,7 +2787,7 @@ clientShade (Client *c)
     TRACE ("entering clientToggleShaded");
     TRACE ("shading client \"%s\" (0x%lx)", c->name, c->window);
 
-    if (!CLIENT_HAS_FRAME(c))
+    if (!CLIENT_HAS_TITLE (c))
     {
         TRACE ("cowardly refusing to shade \"%s\" (0x%lx) because it has no title", c->name, c->window);
         return;
@@ -3133,6 +3159,22 @@ void clientSetLayerNormal (Client *c)
 }
 
 void
+clientUpdateTileSize (Client *c)
+{
+    g_return_if_fail (c != NULL);
+    TRACE ("entering clientUpdateTileSize");
+    TRACE ("Update tiled size for client \"%s\" (0x%lx)", c->name, c->window);
+
+    /* Recompute size and position of tiled windows */
+    if (c->tile_position)
+    {
+        clientTile (c, frameX (c) + frameWidth (c) / 2,
+                       frameY (c) + frameHeight (c) / 2,
+                       c->tile_position, FALSE, TRUE);
+    }
+}
+
+void
 clientUpdateMaximizeSize (Client *c)
 {
     g_return_if_fail (c != NULL);
@@ -3145,6 +3187,21 @@ clientUpdateMaximizeSize (Client *c)
         clientRecomputeMaximizeSize (c);
         clientReconfigure (c, CFG_NOTIFY);
     }
+}
+
+void
+clientRemoveTilePosition (Client *c)
+{
+    g_return_if_fail (c != NULL);
+    TRACE ("entering clientRemoveTileFlag");
+    TRACE ("Removing tile position on client \"%s\" (0x%lx)", c->name,
+        c->window);
+
+    c->tile_position = TILE_NONE;
+    FLAG_UNSET (c->flags, CLIENT_FLAG_MAXIMIZED | CLIENT_FLAG_RESTORE_SIZE_POS);
+    frameQueueDraw (c, FALSE);
+    clientSetNetActions (c);
+    clientSetNetState (c);
 }
 
 void
@@ -3392,6 +3449,7 @@ clientToggleMaximized (Client *c, int mode, gboolean restore_position)
     c->y = wc.y;
     c->height = wc.height;
     c->width = wc.width;
+    c->tile_position = TILE_NONE;
 
     /* Maximizing may remove decoration on the side, update NET_FRAME_EXTENTS accordingly */
     setNetFrameExtents (display_info,
@@ -3424,6 +3482,7 @@ clientTile (Client *c, gint cx, gint cy, tilePositionType tile, gboolean send_co
     XWindowChanges wc;
     GdkRectangle rect;
     unsigned long old_flags;
+    tilePositionType old_tile;
     int mode;
 
     g_return_val_if_fail (c != NULL, FALSE);
@@ -3472,11 +3531,14 @@ clientTile (Client *c, gint cx, gint cy, tilePositionType tile, gboolean send_co
     }
 
     old_flags = c->flags;
+    old_tile = c->tile_position;
     FLAG_UNSET (c->flags, CLIENT_FLAG_MAXIMIZED);
     clientNewMaxState (c, &wc, mode);
+    c->tile_position = tile;
     if (!clientNewMaxSize (c, &wc, &rect, tile))
     {
         c->flags = old_flags;
+        c->tile_position = old_tile;
         return FALSE;
     }
     FLAG_SET (c->flags, CLIENT_FLAG_RESTORE_SIZE_POS);
@@ -3486,6 +3548,11 @@ clientTile (Client *c, gint cx, gint cy, tilePositionType tile, gboolean send_co
     c->height = wc.height;
     c->width = wc.width;
 
+    /* Tiled windows w/out border cannot be resized, update allowed actions */
+    if (FLAG_TEST (c->flags, CLIENT_FLAG_SHADED))
+    {
+        clientUnshade (c);
+    }
     if (send_configure)
     {
         setNetFrameExtents (display_info,
@@ -3688,6 +3755,10 @@ clientScreenResize(ScreenInfo *screen_info, gboolean fully_visible)
         if (FLAG_TEST (c->flags, CLIENT_FLAG_FULLSCREEN))
         {
             clientUpdateFullscreenSize (c);
+        }
+        else if (c->tile_position)
+        {
+            clientUpdateTileSize (c);
         }
         else if (FLAG_TEST (c->flags, CLIENT_FLAG_MAXIMIZED))
         {
